@@ -33,11 +33,7 @@ const CONFIG = {
     // 🔥 Optimizaciones para 50GB disco
     maxDiskCacheItems: Number(process.env.MAX_DISK_CACHE_ITEMS) || 20000, // 🔥 Reducido para más RAM
     diskCacheCleanupThreshold: Number(process.env.DISK_CACHE_CLEANUP_THRESHOLD) || 15000
-    memoryLimit: Number(process.env.MEMORY_LIMIT) || 12 * 1024 * 1024 * 1024, // 🔥 Reducido a 12GB para más CPU
-    batchSize: Number(process.env.BATCH_SIZE) || 15, // 🔥 Procesar en lotes de 15
-    // 🔥 Optimizaciones para 50GB disco
-    maxDiskCacheItems: Number(process.env.MAX_DISK_CACHE_ITEMS) || 30000, // 🔥 Reducido para más RAM
-    diskCacheCleanupThreshold: Number(process.env.DISK_CACHE_CLEANUP_THRESHOLD) || 25000
+};
 
 // Caché en memoria para URLs procesadas
 const formatCache = new Map();
