@@ -20,18 +20,12 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Layer 2: NPM configuration and package files
+COPY .npmrc ./
 COPY package*.json ./
-RUN npm config set registry https://registry.npmjs.org/ && \
-    npm config set fetch-timeout=60000 && \
-    npm config set fetch-retries=5
 
 # Layer 3: Install dependencies with detailed logging
 RUN echo "Starting npm install..." && \
-    npm install --omit=dev --no-audit --no-fund --legacy-peer-deps \
-    --network-timeout=60000 \
-    --fetch-timeout=60000 \
-    --fetch-retries=5 \
-    --verbose 2>&1 | tail -50 && \
+    npm install --omit=dev 2>&1 | tail -100 && \
     echo "npm install completed successfully" && \
     npm list --depth=0 2>/dev/null || true
 
