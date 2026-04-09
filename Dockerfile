@@ -73,4 +73,4 @@ EXPOSE 7860
 USER node
 
 # Start command
-CMD ["node", "--max-old-space-size=12288", "--max-new-space-size=2048", "--optimize-for-size", "api/server.js"]
+CMD ["node", "--max-old-space-size=12288", "--optimize-for-size", "api/server.js"]
