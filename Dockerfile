@@ -26,6 +26,10 @@ COPY public/ ./public/
 # Crear directorio de caché con permisos correctos
 RUN mkdir -p /tmp/compress_cache && chmod 755 /tmp/compress_cache
 
+# Cambiar propietario de los archivos copiados
+RUN chown -R node:node /app
+
+
 # Variables de entorno optimizadas para aprovechar 2 vCPU y 16GB RAM
 ENV NODE_ENV=production
 ENV PORT=7860
@@ -55,7 +59,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Exponer puerto 7860 (requerido por HF Spaces)
 EXPOSE 7860
 
-# Usuario no-root para seguridad
+# Usuario no-root para seguridad (después de configurar permisos)
 USER node
 
 # Comando de inicio optimizado para máximo rendimiento con 16GB RAM
