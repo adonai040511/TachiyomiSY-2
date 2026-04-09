@@ -1,41 +1,52 @@
 FROM node:24-slim
 
-# Instalar dependencias del sistema en una sola capa
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Layer 1: System dependencies (rarely changes)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
     build-essential \
     python3 \
     curl \
     ca-certificates \
+    git \
     libvips-dev \
     libjpeg-dev \
     libpng-dev \
     libtiff-dev \
-    libgif-dev \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    libgif-dev && \
+    rm -rf /var/lib/apt/lists/* && \
+    apt-get clean && \
+    apt-get autoclean
 
 WORKDIR /app
 
-# Copiar package*.json PRIMERO (separate layer para caché de dependencias)
+# Layer 2: NPM configuration and package files
 COPY package*.json ./
+RUN npm config set registry https://registry.npmjs.org/ && \
+    npm config set fetch-timeout=60000 && \
+    npm config set fetch-retries=5
 
-# Instalar dependencias con npm install en lugar de npm ci
-# Usa caché local si existe, con timeouts extendidos
-RUN npm install --omit=dev --no-audit --no-fund --legacy-peer-deps \
+# Layer 3: Install dependencies with detailed logging
+RUN echo "Starting npm install..." && \
+    npm install --omit=dev --no-audit --no-fund --legacy-peer-deps \
     --network-timeout=60000 \
     --fetch-timeout=60000 \
     --fetch-retries=5 \
-    2>&1 | tee npm-install.log
+    --verbose 2>&1 | tail -50 && \
+    echo "npm install completed successfully" && \
+    npm list --depth=0 2>/dev/null || true
 
-# Copiar código fuente (se cachea independientemente)
+# Layer 4: Copy and verify source files
 COPY api/ ./api/
 COPY public/ ./public/
+RUN ls -la api/ public/ && \
+    echo "Files copied successfully"
 
-# Preparar directorios y permisos
+# Layer 5: Setup directories and permissions
 RUN mkdir -p /tmp/compress_cache && \
     chmod 755 /tmp/compress_cache && \
     chown -R node:node /tmp/compress_cache && \
-    chown -R node:node /app
+    chown -R node:node /app && \
+    echo "Permissions set successfully"
 
 # Variables de entorno
 ENV NODE_ENV=production
