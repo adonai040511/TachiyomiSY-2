@@ -19,13 +19,17 @@ const CONFIG = {
     cacheMaxAge: Number(process.env.CACHE_MAX_AGE) || 7200,
     staleWhileRevalidate: Number(process.env.STALE_WHILE_REVALIDATE) || 604800,
     enableCache: process.env.ENABLE_CACHE !== 'false',
-    cacheSize: Number(process.env.CACHE_SIZE) || 100, // Guardar últimas 100 imágenes
-    parallelFetches: Number(process.env.PARALLEL_FETCHES) || 3,
-    // Nuevas configuraciones para HF Spaces
+    cacheSize: Number(process.env.CACHE_SIZE) || 500, // 🔥 Aumentado a 500 imágenes en memoria
+    parallelFetches: Number(process.env.PARALLEL_FETCHES) || 6, // 🔥 Aumentado a 6 fetches paralelos
+    // 🔥 Optimizaciones para aprovechar 2 vCPU y 16GB RAM
     cacheDir: process.env.CACHE_DIR || '/tmp/compress_cache',
-    maxCacheSize: Number(process.env.MAX_CACHE_SIZE) || 1024 * 1024 * 1024, // 1GB cache
-    maxConcurrentJobs: Math.min(4, os.cpus().length * 2), // Máximo 4 jobs concurrentes
-    enableDiskCache: process.env.ENABLE_DISK_CACHE !== 'false'
+    maxCacheSize: Number(process.env.MAX_CACHE_SIZE) || 4 * 1024 * 1024 * 1024, // 🔥 4GB cache (antes 1GB)
+    maxConcurrentJobs: Number(process.env.MAX_CONCURRENT_JOBS) || Math.min(8, os.cpus().length * 4), // 🔥 8 jobs concurrentes (4 por vCPU)
+    enableDiskCache: process.env.ENABLE_DISK_CACHE !== 'false',
+    // 🔥 Nuevas optimizaciones para máximo rendimiento
+    sharpConcurrency: Number(process.env.SHARP_CONCURRENCY) || Math.max(4, os.cpus().length * 2), // 🔥 Sharp con 4+ hilos
+    memoryLimit: Number(process.env.MEMORY_LIMIT) || 14 * 1024 * 1024 * 1024, // 🔥 Usar hasta 14GB de los 16GB disponibles
+    batchSize: Number(process.env.BATCH_SIZE) || 10 // 🔥 Procesar en lotes de 10
 };
 
 // Caché en memoria para URLs procesadas
@@ -41,11 +45,16 @@ async function initCache() {
     if (CONFIG.enableDiskCache) {
         try {
             await fs.mkdir(CONFIG.cacheDir, { recursive: true });
-            console.log(`📁 Disk cache initialized: ${CONFIG.cacheDir}`);
+            console.log(`📁 Disk cache initialized: ${CONFIG.cacheDir} (${Math.round(CONFIG.maxCacheSize / 1024 / 1024 / 1024)}GB)`);
         } catch (error) {
             console.warn('⚠️  Could not create cache directory:', error.message);
         }
     }
+
+    // 🔥 Configurar Sharp para máximo rendimiento
+    sharp.concurrency(CONFIG.sharpConcurrency);
+    sharp.cache({ memory: CONFIG.memoryLimit, files: 100, items: 1000 });
+    console.log(`🔥 Sharp configured: ${CONFIG.sharpConcurrency} threads, ${Math.round(CONFIG.memoryLimit / 1024 / 1024 / 1024)}GB memory limit`);
 }
 
 // Exportar función de inicialización
@@ -102,16 +111,28 @@ async function setDiskCache(cacheKey, buffer, meta) {
 
             fileStats.sort((a, b) => a.mtime - b.mtime);
 
-            // Eliminar archivos más antiguos
-            for (let i = 0; i < Math.max(0, fileStats.length - CONFIG.cacheSize); i++) {
-                const baseName = fileStats[i].name.replace('.json', '');
-                await fs.unlink(fileStats[i].path).catch(() => {});
+            // 🔥 Optimización: Procesar eliminación en lotes para mejor rendimiento
+            const toDelete = fileStats.slice(0, Math.max(0, fileStats.length - CONFIG.cacheSize));
+            await Promise.all(toDelete.map(async (file) => {
+                const baseName = file.name.replace('.json', '');
+                await fs.unlink(file.path).catch(() => {});
                 await fs.unlink(path.join(CONFIG.cacheDir, `${baseName}.bin`)).catch(() => {});
-            }
+            }));
         }
     } catch (error) {
         console.warn('⚠️  Could not write to disk cache:', error.message);
     }
+}
+
+// 🔥 Procesamiento por lotes para máximo rendimiento
+async function processBatch(items, batchSize = CONFIG.batchSize) {
+    const results = [];
+    for (let i = 0; i < items.length; i += batchSize) {
+        const batch = items.slice(i, i + batchSize);
+        const batchResults = await Promise.all(batch.map(item => item()));
+        results.push(...batchResults);
+    }
+    return results;
 }
 
 // Procesamiento paralelo con límite para HF Spaces

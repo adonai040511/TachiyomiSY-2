@@ -26,7 +26,7 @@ COPY public/ ./public/
 # Crear directorio de caché con permisos correctos
 RUN mkdir -p /tmp/compress_cache && chmod 755 /tmp/compress_cache
 
-# Variables de entorno optimizadas para HF Spaces
+# Variables de entorno optimizadas para aprovechar 2 vCPU y 16GB RAM
 ENV NODE_ENV=production
 ENV PORT=7860
 ENV LOCAL_EFFORT=6
@@ -36,10 +36,16 @@ ENV REQUEST_TIMEOUT_MS=60000
 ENV MAX_SIZE_BYTES=102400
 ENV ENABLE_CACHE=true
 ENV ENABLE_DISK_CACHE=true
-ENV CACHE_SIZE=200
-ENV MAX_CONCURRENT_JOBS=4
+ENV CACHE_SIZE=500
+ENV MAX_CACHE_SIZE=4294967296
+ENV MAX_CONCURRENT_JOBS=8
 ENV CACHE_DIR=/tmp/compress_cache
-ENV MAX_CACHE_SIZE=1073741824
+ENV MAX_CACHE_SIZE=4294967296
+# 🔥 Optimizaciones para máximo rendimiento
+ENV SHARP_CONCURRENCY=4
+ENV MEMORY_LIMIT=15032385536
+ENV BATCH_SIZE=10
+ENV PARALLEL_FETCHES=6
 
 # Health check para HF Spaces
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
@@ -51,5 +57,5 @@ EXPOSE 7860
 # Usuario no-root para seguridad
 USER node
 
-# Comando de inicio optimizado
-CMD ["node", "--max-old-space-size=4096", "api/server.js"]
+# Comando de inicio optimizado para máximo rendimiento con 16GB RAM
+CMD ["node", "--max-old-space-size=12288", "--max-new-space-size=2048", "--optimize-for-size", "api/server.js"]
