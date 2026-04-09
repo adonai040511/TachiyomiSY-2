@@ -5,34 +5,33 @@ import path from 'path';
 import os from 'os';
 
 const CONFIG = {
-    maxSizeBytes: Number(process.env.MAX_SIZE_BYTES) || 102400, // 100KB para HF
+    maxSizeBytes: Number(process.env.MAX_SIZE_BYTES) || 102400, // 100KB para Vercel
     localFormat: process.env.LOCAL_FORMAT || 'avif',
-    localQuality: Number(process.env.LOCAL_QUALITY) || 25, // 🔥 REDUCIDO a 25% para máxima velocidad
+    localQuality: Number(process.env.LOCAL_QUALITY) || 25, // 🔥 Calidad 25% para balance velocidad/tamaño
     localQualityHigh: Number(process.env.LOCAL_QUALITY_HIGH) || 35,
     localQualityMin: Number(process.env.LOCAL_QUALITY_MIN) || 15,
-    localEffort: Number(process.env.LOCAL_EFFORT) || 3, // 🔥 Effort 3 para balance calidad/velocidad
-    chroma: process.env.CHROMA || '4:4:4', // 🔥 MÁXIMA calidad de croma para texto y letras pequeñas
-    timeout: Number(process.env.REQUEST_TIMEOUT_MS) || 25000, // 🔥 Más agresivo
-    compressionTimeoutMs: Number(process.env.COMPRESSION_TIMEOUT_MS) || 15000, // 🔥 Muy agresivo
+    localEffort: Number(process.env.LOCAL_EFFORT) || 2, // 🔥 Effort 2 para velocidad en Vercel
+    chroma: process.env.CHROMA || '4:4:4', // 🔥 MÁXIMA calidad de croma para texto
+    timeout: Number(process.env.REQUEST_TIMEOUT_MS) || 20000, // 🔥 20s timeout para Vercel
+    compressionTimeoutMs: Number(process.env.COMPRESSION_TIMEOUT_MS) || 10000, // 🔥 10s para compresión en workers
     proxyWidth: Number(process.env.PROXY_WIDTH) || 720,
     proxyQuality: Number(process.env.PROXY_QUALITY) || 30,
-    cacheMaxAge: Number(process.env.CACHE_MAX_AGE) || 7200,
-    staleWhileRevalidate: Number(process.env.STALE_WHILE_REVALIDATE) || 604800,
-    enableCache: process.env.ENABLE_CACHE !== 'false', // 🔥 DESHABILITADO para RAM dedicada a compresión
-    cacheSize: Number(process.env.CACHE_SIZE) || 0, // 🔥 SIN caché RAM
-    parallelFetches: Number(process.env.PARALLEL_FETCHES) || 16, // 🔥 Aumentado a 16 fetches paralelos
-    // 🔥 Optimizaciones para MÁXIMA VELOCIDAD SIN CACHÉ RAM
+    cacheMaxAge: Number(process.env.CACHE_MAX_AGE) || 3600, // 1 hora de caché
+    staleWhileRevalidate: Number(process.env.STALE_WHILE_REVALIDATE) || 86400, // 1 día
+    enableCache: process.env.ENABLE_CACHE === 'true', // 🔥 Deshabilitado por defecto en Vercel (serverless)
+    cacheSize: Number(process.env.CACHE_SIZE) || 100 * 1024 * 1024, // 100MB máximo de caché RAM
+    parallelFetches: Number(process.env.PARALLEL_FETCHES) || 2, // 🔥 2 fetches paralelos para Vercel
+    // 🔥 Optimizaciones para Vercel como orquestador
     cacheDir: process.env.CACHE_DIR || '/tmp/compress_cache',
-    maxCacheSize: Number(process.env.MAX_CACHE_SIZE) || 50 * 1024 * 1024 * 1024,
-    maxConcurrentJobs: Number(process.env.MAX_CONCURRENT_JOBS) || 16, // 🔥 16 jobs concurrentes
-    enableDiskCache: process.env.ENABLE_DISK_CACHE !== 'false',
-    // 🔥 Optimizaciones para máximo rendimiento CPU
-    sharpConcurrency: Number(process.env.SHARP_CONCURRENCY) || 4, // 🔥 4 hilos Sharp
-    memoryLimit: Number(process.env.MEMORY_LIMIT) || 8 * 1024 * 1024 * 1024, // 🔥 8GB para Sharp (más CPU)
-    batchSize: Number(process.env.BATCH_SIZE) || 25, // 🔥 Procesar en lotes de 25
-    // 🔥 Optimizaciones para 50GB disco (caché solo en disco)
-    maxDiskCacheItems: Number(process.env.MAX_DISK_CACHE_ITEMS) || 50000, // 🔥 Hasta 50,000 imágenes en disco
-    diskCacheCleanupThreshold: Number(process.env.DISK_CACHE_CLEANUP_THRESHOLD) || 40000
+    maxCacheSize: Number(process.env.MAX_CACHE_SIZE) || 1024 * 1024 * 1024, // 1GB temporal
+    maxConcurrentJobs: Number(process.env.MAX_CONCURRENT_JOBS) || 1, // 🔥 1 job por vez en Vercel
+    enableDiskCache: false, // 🔥 Deshabilitado en Vercel (serverless efímero)
+    // 🔥 Optimizaciones para rendimiento en Vercel
+    sharpConcurrency: Number(process.env.SHARP_CONCURRENCY) || 2, // 🔥 2 hilos Sharp para Vercel
+    memoryLimit: Number(process.env.MEMORY_LIMIT) || 512 * 1024 * 1024, // 🔥 512MB para Sharp en Vercel
+    batchSize: Number(process.env.BATCH_SIZE) || 10, // 🔥 Procesar en lotes pequeños
+    maxDiskCacheItems: Number(process.env.MAX_DISK_CACHE_ITEMS) || 100,
+    diskCacheCleanupThreshold: Number(process.env.DISK_CACHE_CLEANUP_THRESHOLD) || 80
 };
 
 // Caché en memoria para URLs procesadas
@@ -54,10 +53,10 @@ async function initCache() {
         }
     }
 
-    // 🔥 Configurar Sharp para máximo rendimiento con balance CPU/RAM
+    // 🔥 Configurar Sharp para Vercel serverless
     sharp.concurrency(CONFIG.sharpConcurrency);
-    sharp.cache({ memory: CONFIG.memoryLimit, files: 50, items: 500 }); // 🔥 Reducido files/items para más memoria por imagen
-    console.log(`🔥 Sharp configured: ${CONFIG.sharpConcurrency} threads, ${Math.round(CONFIG.memoryLimit / 1024 / 1024 / 1024)}GB memory limit`);
+    sharp.cache({ memory: CONFIG.memoryLimit, files: 5, items: 10 }); // 🔥 Mínimo caché para Vercel
+    console.log(`🔥 Sharp configured: ${CONFIG.sharpConcurrency} threads, ${Math.round(CONFIG.memoryLimit / 1024 / 1024)}MB memory limit`);
 }
 
 // Exportar función de inicialización

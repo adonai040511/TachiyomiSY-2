@@ -15,14 +15,14 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 7860;
 
-// Configuración optimizada para HF Spaces
+// Configuración optimizada para Vercel serverless
 const CONFIG = {
     port: PORT,
-    host: '0.0.0.0', // HF Spaces requiere binding a 0.0.0.0
-    maxConcurrentRequests: Math.max(2, os.cpus().length), // Usar todos los vCPU disponibles
-    requestTimeout: 60000, // 60 segundos por request (sin límite HF)
-    keepAliveTimeout: 65000,
-    headersTimeout: 66000
+    host: '0.0.0.0', // Vercel requiere binding a 0.0.0.0
+    maxConcurrentRequests: 1, // Vercel maneja concurrencia con functions
+    requestTimeout: 20000, // 20 segundos timeout para Vercel
+    keepAliveTimeout: 20000,
+    headersTimeout: 21000
 };
 
 // Middleware para logging básico
@@ -44,16 +44,16 @@ app.use(express.static(join(__dirname, '../public'), {
     etag: true
 }));
 
-// Ruta de compresión con timeout extendido
+// Ruta de compresión con timeout para Vercel
 app.get('/api/compress', async (req, res) => {
-    // Timeout extendido para HF Spaces (sin límite)
+    // Timeouts configurados para Vercel
     req.setTimeout(CONFIG.requestTimeout);
     res.setTimeout(CONFIG.requestTimeout);
 
     await handler(req, res);
 });
 
-// Health check específico para HF Spaces
+// Health check para monitoring
 app.get('/health', (req, res) => {
     const health = {
         status: 'ok',
@@ -98,7 +98,7 @@ const server = app.listen(CONFIG.port, CONFIG.host, () => {
     console.log(`📍 Running on: http://${CONFIG.host}:${CONFIG.port}`);
     console.log(`💻 CPUs available: ${os.cpus().length}`);
     console.log(`🧠 Memory: ${Math.round(os.totalmem() / 1024 / 1024 / 1024)}GB total`);
-    console.log(`⏰ No timeout limits (HF Spaces)`);
+    console.log(`⏰ Vercel serverless function optimized`);
 });
 
 // Configurar timeouts del servidor
