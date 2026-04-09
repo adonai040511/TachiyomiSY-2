@@ -25,7 +25,7 @@ COPY api/ ./api/
 COPY public/ ./public/
 
 # Crear directorio de caché con permisos correctos
-RUN mkdir -p /tmp/compress_cache && chmod 755 /tmp/compress_cache
+RUN mkdir -p /tmp/compress_cache && chmod 755 /tmp/compress_cache && chown -R node:node /tmp/compress_cache
 
 # Cambiar propietario de los archivos copiados
 RUN chown -R node:node /app
