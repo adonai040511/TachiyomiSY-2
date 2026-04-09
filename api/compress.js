@@ -10,29 +10,29 @@ const CONFIG = {
     localQuality: Number(process.env.LOCAL_QUALITY) || 25, // 🔥 REDUCIDO a 25% para máxima velocidad
     localQualityHigh: Number(process.env.LOCAL_QUALITY_HIGH) || 35,
     localQualityMin: Number(process.env.LOCAL_QUALITY_MIN) || 15,
-    localEffort: Number(process.env.LOCAL_EFFORT) || 1, // 🔥 MÍNIMO effort (1) para máxima velocidad
+    localEffort: Number(process.env.LOCAL_EFFORT) || 3, // 🔥 Effort 3 para balance calidad/velocidad
     chroma: process.env.CHROMA || '4:4:4', // 🔥 MÁXIMA calidad de croma para texto y letras pequeñas
-    timeout: Number(process.env.REQUEST_TIMEOUT_MS) || 30000, // 🔥 Más agresivo
-    compressionTimeoutMs: Number(process.env.COMPRESSION_TIMEOUT_MS) || 20000, // 🔥 Muy agresivo
+    timeout: Number(process.env.REQUEST_TIMEOUT_MS) || 25000, // 🔥 Más agresivo
+    compressionTimeoutMs: Number(process.env.COMPRESSION_TIMEOUT_MS) || 15000, // 🔥 Muy agresivo
     proxyWidth: Number(process.env.PROXY_WIDTH) || 720,
     proxyQuality: Number(process.env.PROXY_QUALITY) || 30,
     cacheMaxAge: Number(process.env.CACHE_MAX_AGE) || 7200,
     staleWhileRevalidate: Number(process.env.STALE_WHILE_REVALIDATE) || 604800,
-    enableCache: process.env.ENABLE_CACHE !== 'false',
-    cacheSize: Number(process.env.CACHE_SIZE) || 1000, // 🔥 Reducido para más RAM en procesamiento
-    parallelFetches: Number(process.env.PARALLEL_FETCHES) || 12, // 🔥 Aumentado a 12 fetches paralelos
-    // 🔥 Optimizaciones para MÁXIMA VELOCIDAD
+    enableCache: process.env.ENABLE_CACHE !== 'false', // 🔥 DESHABILITADO para RAM dedicada a compresión
+    cacheSize: Number(process.env.CACHE_SIZE) || 0, // 🔥 SIN caché RAM
+    parallelFetches: Number(process.env.PARALLEL_FETCHES) || 16, // 🔥 Aumentado a 16 fetches paralelos
+    // 🔥 Optimizaciones para MÁXIMA VELOCIDAD SIN CACHÉ RAM
     cacheDir: process.env.CACHE_DIR || '/tmp/compress_cache',
     maxCacheSize: Number(process.env.MAX_CACHE_SIZE) || 50 * 1024 * 1024 * 1024,
-    maxConcurrentJobs: Number(process.env.MAX_CONCURRENT_JOBS) || 12, // 🔥 12 jobs concurrentes (6 por vCPU)
+    maxConcurrentJobs: Number(process.env.MAX_CONCURRENT_JOBS) || 16, // 🔥 16 jobs concurrentes
     enableDiskCache: process.env.ENABLE_DISK_CACHE !== 'false',
     // 🔥 Optimizaciones para máximo rendimiento CPU
     sharpConcurrency: Number(process.env.SHARP_CONCURRENCY) || 4, // 🔥 4 hilos Sharp
-    memoryLimit: Number(process.env.MEMORY_LIMIT) || 10 * 1024 * 1024 * 1024, // 🔥 Reducido a 10GB para más CPU
-    batchSize: Number(process.env.BATCH_SIZE) || 20, // 🔥 Procesar en lotes de 20
-    // 🔥 Optimizaciones para 50GB disco
-    maxDiskCacheItems: Number(process.env.MAX_DISK_CACHE_ITEMS) || 20000, // 🔥 Reducido para más RAM
-    diskCacheCleanupThreshold: Number(process.env.DISK_CACHE_CLEANUP_THRESHOLD) || 15000
+    memoryLimit: Number(process.env.MEMORY_LIMIT) || 8 * 1024 * 1024 * 1024, // 🔥 8GB para Sharp (más CPU)
+    batchSize: Number(process.env.BATCH_SIZE) || 25, // 🔥 Procesar en lotes de 25
+    // 🔥 Optimizaciones para 50GB disco (caché solo en disco)
+    maxDiskCacheItems: Number(process.env.MAX_DISK_CACHE_ITEMS) || 50000, // 🔥 Hasta 50,000 imágenes en disco
+    diskCacheCleanupThreshold: Number(process.env.DISK_CACHE_CLEANUP_THRESHOLD) || 40000
 };
 
 // Caché en memoria para URLs procesadas
@@ -326,26 +326,26 @@ export default async function handler(req, res) {
 
     const cacheKey = getCacheKey(normalizedUrl);
 
-    // Verificar caché primero (a menos que se force)
-    if (!force && CONFIG.enableCache) {
-        const cached = formatCache.get(cacheKey);
-        if (cached && Date.now() - cached.timestamp < CONFIG.cacheMaxAge * 1000) {
-            console.log(`💾 Memory cache hit for ${cacheKey.substring(0, 8)}`);
+    // Verificar caché de disco primero (SIN caché RAM para máxima velocidad)
+    if (!force && CONFIG.enableDiskCache) {
+        const diskCached = await getDiskCache(cacheKey);
+        if (diskCached) {
+            console.log(`💾 Disk cache hit for ${cacheKey.substring(0, 8)}`);
 
-            res.setHeader('Content-Type', cached.finalFormat);
+            res.setHeader('Content-Type', diskCached.meta.finalFormat);
             res.setHeader('Cache-Control', `public, max-age=${CONFIG.cacheMaxAge}, stale-while-revalidate=${CONFIG.staleWhileRevalidate}`);
-            res.setHeader('Content-Length', String(cached.outputSize));
-            res.setHeader('X-Input-Size', String(cached.inputSize));
-            res.setHeader('X-Output-Size', String(cached.outputSize));
-            res.setHeader('X-Compressed', String(cached.compressed));
-            res.setHeader('X-Processor', cached.processor);
-            res.setHeader('X-Proxy-Used', cached.provider);
-            res.setHeader('X-Limit-60KB', cached.limitCheck);
-            res.setHeader('X-Quality-Used', String(cached.qualityUsed));
-            res.setHeader('X-Effort-Used', String(cached.effortUsed));
-            res.setHeader('X-Compression-Stage', cached.compressionStage);
-            res.setHeader('X-Compression-Ratio', cached.compressionRatio);
-            res.setHeader('X-Cache-Status', 'HIT');
+            res.setHeader('Content-Length', String(diskCached.meta.outputSize));
+            res.setHeader('X-Input-Size', String(diskCached.meta.inputSize));
+            res.setHeader('X-Output-Size', String(diskCached.meta.outputSize));
+            res.setHeader('X-Compressed', String(diskCached.meta.compressed));
+            res.setHeader('X-Processor', diskCached.meta.processor);
+            res.setHeader('X-Proxy-Used', diskCached.meta.provider);
+            res.setHeader('X-Limit-60KB', diskCached.meta.limitCheck);
+            res.setHeader('X-Quality-Used', String(diskCached.meta.qualityUsed));
+            res.setHeader('X-Effort-Used', String(diskCached.meta.effortUsed));
+            res.setHeader('X-Compression-Stage', diskCached.meta.compressionStage);
+            res.setHeader('X-Compression-Ratio', diskCached.meta.compressionRatio);
+            res.setHeader('X-Cache-Status', 'DISK-HIT');
 
             if (debug === 'true') {
                 return res.json({
@@ -459,21 +459,8 @@ export default async function handler(req, res) {
                 }
             };
 
-            // Guardar en caché
-            if (CONFIG.enableCache) {
-                const cacheEntry = {
-                    ...resultData,
-                    timestamp: Date.now()
-                };
-                formatCache.set(cacheKey, cacheEntry);
-
-                // Mantener tamaño del caché
-                if (formatCache.size > CONFIG.cacheSize) {
-                    const firstKey = formatCache.keys().next().value;
-                    formatCache.delete(firstKey);
-                }
-
-                // Guardar en disco también
+            // Guardar SOLO en caché de disco (SIN RAM para máxima velocidad)
+            if (CONFIG.enableDiskCache) {
                 await setDiskCache(cacheKey, finalBuffer, resultData);
             }
 

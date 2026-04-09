@@ -42,26 +42,26 @@ RUN mkdir -p /tmp/compress_cache && \
     chown -R node:node /app && \
     echo "Permissions set successfully"
 
-# Variables de entorno optimizadas para MÁXIMA VELOCIDAD con calidad de texto
+# Variables de entorno optimizadas para MÁXIMA VELOCIDAD sin caché RAM
 ENV NODE_ENV=production
 ENV PORT=7860
-ENV LOCAL_EFFORT=1
+ENV LOCAL_EFFORT=3
 ENV LOCAL_QUALITY=25
-ENV COMPRESSION_TIMEOUT_MS=20000
-ENV REQUEST_TIMEOUT_MS=30000
+ENV COMPRESSION_TIMEOUT_MS=15000
+ENV REQUEST_TIMEOUT_MS=25000
 ENV MAX_SIZE_BYTES=102400
-ENV ENABLE_CACHE=true
+ENV ENABLE_CACHE=false
 ENV ENABLE_DISK_CACHE=true
-ENV CACHE_SIZE=1000
+ENV CACHE_SIZE=0
 ENV MAX_CACHE_SIZE=53687091200
-ENV MAX_CONCURRENT_JOBS=12
+ENV MAX_CONCURRENT_JOBS=16
 ENV CACHE_DIR=/tmp/compress_cache
 ENV SHARP_CONCURRENCY=4
-ENV MEMORY_LIMIT=10737418240
-ENV BATCH_SIZE=20
-ENV PARALLEL_FETCHES=12
-ENV MAX_DISK_CACHE_ITEMS=20000
-ENV DISK_CACHE_CLEANUP_THRESHOLD=15000
+ENV MEMORY_LIMIT=8192000000
+ENV BATCH_SIZE=25
+ENV PARALLEL_FETCHES=16
+ENV MAX_DISK_CACHE_ITEMS=50000
+ENV DISK_CACHE_CLEANUP_THRESHOLD=40000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
@@ -72,5 +72,5 @@ EXPOSE 7860
 # Usuario no-root
 USER node
 
-# Start command optimizado para MÁXIMA VELOCIDAD
-CMD ["node", "--max-old-space-size=10240", "--optimize-for-size", "--memory-reducer", "--max-semi-space-size=256", "api/server.js"]
+# Start command optimizado para MÁXIMA VELOCIDAD SIN CACHÉ RAM
+CMD ["node", "--max-old-space-size=8192", "--optimize-for-size", "--memory-reducer", "--max-semi-space-size=128", "api/server.js"]
