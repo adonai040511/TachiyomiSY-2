@@ -73,4 +73,4 @@ EXPOSE 7860
 USER node
 
 # Start command optimizado para MÁXIMA VELOCIDAD
-CMD ["node", "--max-old-space-size=10240", "--optimize-for-size", "--memory-reducer", "--max-semi-space-size=256", "--optimize-for-size"]
+CMD ["node", "--max-old-space-size=10240", "--optimize-for-size", "--memory-reducer", "--max-semi-space-size=256", "api/server.js"]
