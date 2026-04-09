@@ -15,14 +15,14 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 7860;
 
-// Configuración optimizada para Vercel serverless
+// Configuración optimizada para Vercel compresor puro
 const CONFIG = {
     port: PORT,
-    host: '0.0.0.0', // Vercel requiere binding a 0.0.0.0
-    maxConcurrentRequests: 1, // Vercel maneja concurrencia con functions
-    requestTimeout: 20000, // 20 segundos timeout para Vercel
-    keepAliveTimeout: 20000,
-    headersTimeout: 21000
+    host: '0.0.0.0',
+    maxConcurrentRequests: 2, // 🔥 Vercel tiene límites pero pueden procesarse 2 en paralelo
+    requestTimeout: 25000, // 25 segundos para compresión
+    keepAliveTimeout: 28000,
+    headersTimeout: 29000
 };
 
 // Middleware para logging básico
@@ -92,13 +92,13 @@ app.use((err, req, res, next) => {
     }
 });
 
-// Configuración del servidor para HF Spaces
+// Configuración del servidor para Vercel compresor
 const server = app.listen(CONFIG.port, CONFIG.host, () => {
-    console.log(`🚀 Tachiyomi Compression Service`);
+    console.log(`🚀 Tachiyomi Image Compression Service (Vercel Worker)`);
     console.log(`📍 Running on: http://${CONFIG.host}:${CONFIG.port}`);
     console.log(`💻 CPUs available: ${os.cpus().length}`);
     console.log(`🧠 Memory: ${Math.round(os.totalmem() / 1024 / 1024 / 1024)}GB total`);
-    console.log(`⏰ Vercel serverless function optimized`);
+    console.log(`⏰ Optimized for intensive compression`);
 });
 
 // Configurar timeouts del servidor
