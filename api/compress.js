@@ -10,7 +10,7 @@ const CONFIG = {
     localQuality: Number(process.env.LOCAL_QUALITY) || 40,
     localQualityHigh: Number(process.env.LOCAL_QUALITY_HIGH) || 55,
     localQualityMin: Number(process.env.LOCAL_QUALITY_MIN) || 20,
-    localEffort: Number(process.env.LOCAL_EFFORT) || 6, // Más alto en HF
+    localEffort: Number(process.env.LOCAL_EFFORT) || 4, // 🔥 Reducido de 6 a 4 para menos CPU
     chroma: process.env.CHROMA || '4:4:4',
     timeout: Number(process.env.REQUEST_TIMEOUT_MS) || 60000, // 60s en HF
     compressionTimeoutMs: Number(process.env.COMPRESSION_TIMEOUT_MS) || 45000, // 45s sin prisa
@@ -20,14 +20,14 @@ const CONFIG = {
     staleWhileRevalidate: Number(process.env.STALE_WHILE_REVALIDATE) || 604800,
     enableCache: process.env.ENABLE_CACHE !== 'false',
     cacheSize: Number(process.env.CACHE_SIZE) || 2000, // 🔥 Aumentado a 2000 imágenes en memoria (4x más)
-    parallelFetches: Number(process.env.PARALLEL_FETCHES) || 6, // 🔥 Aumentado a 6 fetches paralelos
+    parallelFetches: Number(process.env.PARALLEL_FETCHES) || 4, // 🔥 Reducido a 4 fetches paralelos
     // 🔥 Optimizaciones para aprovechar 2 vCPU y 16GB RAM + 50GB disco
     cacheDir: process.env.CACHE_DIR || '/tmp/compress_cache',
     maxCacheSize: Number(process.env.MAX_CACHE_SIZE) || 50 * 1024 * 1024 * 1024, // 🔥 50GB cache (antes 4GB) - TODO DISCO DISPONIBLE
-    maxConcurrentJobs: Number(process.env.MAX_CONCURRENT_JOBS) || Math.min(8, os.cpus().length * 4), // 🔥 8 jobs concurrentes (4 por vCPU)
+    maxConcurrentJobs: Number(process.env.MAX_CONCURRENT_JOBS) || 4, // 🔥 Reducido a 4 jobs concurrentes (2 por vCPU)
     enableDiskCache: process.env.ENABLE_DISK_CACHE !== 'false',
     // 🔥 Nuevas optimizaciones para máximo rendimiento
-    sharpConcurrency: Number(process.env.SHARP_CONCURRENCY) || Math.max(4, os.cpus().length * 2), // 🔥 Sharp con 4+ hilos
+    sharpConcurrency: Number(process.env.SHARP_CONCURRENCY) || 2, // 🔥 Reducido a 2 hilos (1 por vCPU)
     memoryLimit: Number(process.env.MEMORY_LIMIT) || 14 * 1024 * 1024 * 1024, // 🔥 Usar hasta 14GB de los 16GB disponibles
     batchSize: Number(process.env.BATCH_SIZE) || 10, // 🔥 Procesar en lotes de 10
     // 🔥 Optimizaciones para 50GB disco
@@ -54,9 +54,9 @@ async function initCache() {
         }
     }
 
-    // 🔥 Configurar Sharp para máximo rendimiento
+    // 🔥 Configurar Sharp para máximo rendimiento con balance CPU/RAM
     sharp.concurrency(CONFIG.sharpConcurrency);
-    sharp.cache({ memory: CONFIG.memoryLimit, files: 100, items: 1000 });
+    sharp.cache({ memory: CONFIG.memoryLimit, files: 50, items: 500 }); // 🔥 Reducido files/items para más memoria por imagen
     console.log(`🔥 Sharp configured: ${CONFIG.sharpConcurrency} threads, ${Math.round(CONFIG.memoryLimit / 1024 / 1024 / 1024)}GB memory limit`);
 }
 

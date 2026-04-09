@@ -42,10 +42,10 @@ RUN mkdir -p /tmp/compress_cache && \
     chown -R node:node /app && \
     echo "Permissions set successfully"
 
-# Variables de entorno
+# Variables de entorno optimizadas para balance CPU/RAM
 ENV NODE_ENV=production
 ENV PORT=7860
-ENV LOCAL_EFFORT=6
+ENV LOCAL_EFFORT=4
 ENV LOCAL_QUALITY=40
 ENV COMPRESSION_TIMEOUT_MS=45000
 ENV REQUEST_TIMEOUT_MS=60000
@@ -54,12 +54,12 @@ ENV ENABLE_CACHE=true
 ENV ENABLE_DISK_CACHE=true
 ENV CACHE_SIZE=2000
 ENV MAX_CACHE_SIZE=53687091200
-ENV MAX_CONCURRENT_JOBS=8
+ENV MAX_CONCURRENT_JOBS=4
 ENV CACHE_DIR=/tmp/compress_cache
-ENV SHARP_CONCURRENCY=4
+ENV SHARP_CONCURRENCY=2
 ENV MEMORY_LIMIT=15032385536
 ENV BATCH_SIZE=10
-ENV PARALLEL_FETCHES=6
+ENV PARALLEL_FETCHES=4
 ENV MAX_DISK_CACHE_ITEMS=50000
 ENV DISK_CACHE_CLEANUP_THRESHOLD=45000
 
@@ -72,5 +72,5 @@ EXPOSE 7860
 # Usuario no-root
 USER node
 
-# Start command
-CMD ["node", "--max-old-space-size=12288", "--optimize-for-size", "api/server.js"]
+# Start command optimizado para balance CPU/RAM
+CMD ["node", "--max-old-space-size=14336", "--optimize-for-size", "--memory-reducer", "api/server.js"]
